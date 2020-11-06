@@ -1,7 +1,9 @@
 import "./scss/common.scss";
 import "material-design-icons/iconfont/material-icons.css";
 import refs from "./js/refs";
-import fetchPhotos from "./js/fetchPhotos";
+
+import { fetchPhotos, infScroll } from "./js/fetchPhotos";
+
 import renderPhotoCards from "./js/render";
 
 import "./js/pnotify-cfg";
@@ -13,13 +15,11 @@ import * as basicLightbox from "basiclightbox";
 import "basiclightbox/dist/basicLightbox.min.css";
 
 refs.searchForm.addEventListener("input", debounce(onSearch, 500));
-refs.loadBtn.addEventListener("click", onSearch);
 refs.gallery.addEventListener("click", onGalleryClick);
-
-refs.loadBtn.disabled = true;
 
 let searchQuery = "";
 let page = null;
+let nextPage = null;
 const perPage = 12;
 
 function onSearch(e) {
@@ -44,17 +44,12 @@ function whenNewSearchQuery(query) {
 
 function whenOldSearchQuery() {
   page += 1;
+  nextPage = page + 1;
 }
 
 function onFetchSuccess(data) {
-  let top = refs.gallery.offsetHeight;
   renderPhotoCards(data);
-  window.scrollTo({
-    top,
-    behavior: "smooth",
-  });
   pnotify(data);
-  refs.loadBtn.disabled = false;
 }
 
 function onFetchError(error) {
@@ -76,22 +71,9 @@ function onGalleryClick({ target: { nodeName, dataset } }) {
   instance.show();
 }
 
-
-//=================================================================================================================
-
-
-import InfiniteScroll from "infinite-scroll";
-
-const infScroll = new InfiniteScroll(refs.gallery, {
-  responseType: "text",
-  history: false,
-  path: function () {
-    return `https://pixabay.com/api/?image_type=photo&orientation=horizontal&q=${searchQuery}&page=2&per_page=12&key=18969106-b552d166da3dfed7b4523ee16`;
-  },
+infScroll.on("load", (response) => {
+  console.log("loadind...");
+  const data = JSON.parse(response);
+  page += 1;
+  onFetchSuccess(data);
 });
-
-infScroll.on('load', (res, url) => {
-  console.log(res)
-  console.log(url)
-});
-//=======================================================================================================================
