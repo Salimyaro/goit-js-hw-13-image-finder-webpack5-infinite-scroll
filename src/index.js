@@ -1,26 +1,40 @@
 import "./scss/common.scss";
+import "./scss/loader.scss";
 import "material-design-icons/iconfont/material-icons.css";
 import refs from "./js/refs";
-
-import { fetchPhotos, infScroll } from "./js/fetchPhotos";
-
+import getPath from "./js/get-path";
 import renderPhotoCards from "./js/render";
 
+import { success, notice } from "@pnotify/core";
 import "./js/pnotify-cfg";
-import { success } from "@pnotify/core";
 
 import debounce from "lodash.debounce";
 
 import * as basicLightbox from "basiclightbox";
 import "basiclightbox/dist/basicLightbox.min.css";
 
+import InfiniteScroll from "infinite-scroll";
+
 refs.searchForm.addEventListener("input", debounce(onSearch, 500));
 refs.gallery.addEventListener("click", onGalleryClick);
 
 let searchQuery = "";
-let page = null;
-let nextPage = null;
 const perPage = 12;
+
+const infScroll = new InfiniteScroll(refs.gallery, {
+  responseType: "text",
+  history: false,
+  status: ".page-load-status",
+  path() {
+    return getPath(searchQuery, this.pageIndex, perPage);
+  },
+});
+
+infScroll.on("load", (response) => {
+  const data = JSON.parse(response);
+  renderPhotoCards(data);
+  loadCheck(data);
+});
 
 function onSearch(e) {
   e.preventDefault();
@@ -28,36 +42,25 @@ function onSearch(e) {
   if (!newSearchQuery) return;
   if (searchQuery !== newSearchQuery) {
     whenNewSearchQuery(newSearchQuery);
-  } else {
-    whenOldSearchQuery();
   }
-  fetchPhotos(searchQuery, page, perPage)
-    .then(onFetchSuccess)
-    .catch(onFetchError);
+  infScroll.loadNextPage();
 }
 
-function whenNewSearchQuery(query) {
-  page = 1;
-  searchQuery = query;
+function whenNewSearchQuery(newSearchQuery) {
+  infScroll.canLoad = true;
+  infScroll.pageIndex = 1;
+  searchQuery = newSearchQuery;
   refs.gallery.innerHTML = "";
 }
 
-function whenOldSearchQuery() {
-  page += 1;
-  nextPage = page + 1;
-}
-
-function onFetchSuccess(data) {
-  renderPhotoCards(data);
-  pnotify(data);
-}
-
-function onFetchError(error) {
-  console.log(error);
-}
-
-function pnotify(data) {
-  const uploaded = page * perPage;
+function loadCheck(data) {
+  const uploaded =
+    (infScroll.pageIndex - 1) * perPage - perPage + data.hits.length;
+  if (uploaded >= data.totalHits) {
+    infScroll.canLoad = false;
+    notice(`Uploaded all images out of ${data.totalHits}`);
+    return;
+  }
   success(`Uploaded ${uploaded} images out of ${data.totalHits}`);
 }
 
@@ -70,10 +73,3 @@ function onGalleryClick({ target: { nodeName, dataset } }) {
 `);
   instance.show();
 }
-
-infScroll.on("load", (response) => {
-  console.log("loadind...");
-  const data = JSON.parse(response);
-  page += 1;
-  onFetchSuccess(data);
-});
