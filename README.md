@@ -1,4 +1,4 @@
-# goit-js-hw-13-image-finder-infiniteScroll-webpack5-async
+# goit-js-hw-13-image-finder-infiniteScroll-webpack5
 
 infiniteScroll fetches all data
 external card render
